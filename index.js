@@ -2,7 +2,7 @@ const express = require('express');
 const app = express()
 require('dotenv').config()
 const cors = require('cors');
-const port = process.env.PORT || 5000 
+const port = process.env.PORT || 5000
 
 
 // middleWare
@@ -31,41 +31,61 @@ async function run() {
 
     const furnitureCollection = client.db("furnitureWorldDB").collection("furniture")
     const cartCollection = client.db("furnitureWorldDB").collection("cart")
+    const userCollection = client.db("furnitureWorldDB").collection("users")
 
-    app.get('/furniture',async (req,res)=>{
-        const result = await furnitureCollection.find().toArray()
-        res.send(result)
-    })
-    app.get('/furniture/:id', async(req,res)=>{
-      const id = req.params.id
-      const query = {_id: new ObjectId(id)}
-      const options = {
-        projection: { name:1, price: 1, img: 1 },
-      };
-      const result = await furnitureCollection.findOne(query,options)
+    // userCollection
+
+    app.post('/users', async (req, res) => {
+      const user = req.body
+      const query = {email: user.email}
+      const existingUser = await userCollection.findOne(query)
+
+      if(existingUser){
+        return res.send({massage:'User Already exists'})
+      }
+      const result = await userCollection.insertOne(user)
       res.send(result)
     })
 
-    app.get('/cart',async(req,res)=>{
-      const email = req.query.email 
-      if(!email){
+    // furniture collection
+
+    app.get('/furniture', async (req, res) => {
+      const result = await furnitureCollection.find().toArray()
+      res.send(result)
+    })
+    app.get('/furniture/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const options = {
+        projection: { name: 1, price: 1, img: 1 },
+      };
+      const result = await furnitureCollection.findOne(query, options)
+      res.send(result)
+    })
+
+
+    // cartCollection
+
+    app.get('/cart', async (req, res) => {
+      const email = req.query.email
+      if (!email) {
         res.send([])
       }
-      const query = {email: email}
+      const query = { email: email }
       const result = await cartCollection.find(query).toArray()
       res.send(result)
     })
 
-    app.post('/cart',async(req,res)=>{
-      const item = req.body 
+    app.post('/cart', async (req, res) => {
+      const item = req.body
       console.log(item)
       const result = await cartCollection.insertOne(item)
       res.send(result)
     })
 
-    app.delete('/cart/:id',async(req,res)=>{
-      const id = req.params.id 
-      const query = {_id: new ObjectId(id)}
+    app.delete('/cart/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
       const result = await cartCollection.deleteOne(query)
       res.send(result)
     })
@@ -81,10 +101,10 @@ async function run() {
 run().catch(console.dir);
 
 
-app.get( '/', (req,res)=>{
-    res.send('furniture World is sitting')
+app.get('/', (req, res) => {
+  res.send('furniture World is sitting')
 })
 
-app.listen(port, ()=>{
-    console.log(`furniture world sitting on port ${port}`)
+app.listen(port, () => {
+  console.log(`furniture world sitting on port ${port}`)
 })
