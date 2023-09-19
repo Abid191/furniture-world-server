@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express()
 require('dotenv').config()
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const port = process.env.PORT || 5000
 
@@ -33,6 +34,14 @@ async function run() {
     const cartCollection = client.db("furnitureWorldDB").collection("cart")
     const userCollection = client.db("furnitureWorldDB").collection("users")
 
+    app.post('jwt',(req,res)=>{
+      const user = req.body 
+      const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{
+        expiresIn : '1h'
+      })
+      res.send({token})
+    })
+
     // userCollection
 
     app.get('/users', async (req, res) => {
@@ -42,13 +51,33 @@ async function run() {
 
     app.post('/users', async (req, res) => {
       const user = req.body
-      const query = {email: user.email}
+      const query = { email: user.email }
       const existingUser = await userCollection.findOne(query)
 
-      if(existingUser){
-        return res.send({massage:'User Already exists'})
+      if (existingUser) {
+        return res.send({ massage: 'User Already exists' })
       }
       const result = await userCollection.insertOne(user)
+      res.send(result)
+    })
+
+    app.patch('/users/admin/:id', async (req, res) => {
+      const id = req.params.id
+      console.log(id)
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+          role: 'admin'
+        },
+      }
+      const result = await userCollection.updateOne(filter,updatedDoc)
+      res.send(result)
+    })
+
+    app.delete('/users/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await userCollection.deleteOne(query)
       res.send(result)
     })
 
