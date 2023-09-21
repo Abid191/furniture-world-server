@@ -11,7 +11,21 @@ const port = process.env.PORT || 5000
 app.use(express.json())
 app.use(cors())
 
+const verifyJWT = (req, res, next) => {
+  const authorization = req.headers.authorization
+  if (!authorization) {
+    return res.status(401).send({ error: true, massage: 'unauthorized access' })
+  }
 
+  const token = authorization.split(' ')[1]
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ error: true, massage: 'unauthorized access' })
+    }
+    req.decoded = decoded
+    next()
+  })
+}
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vvgdhvd.mongodb.net/?retryWrites=true&w=majority`;
@@ -34,12 +48,12 @@ async function run() {
     const cartCollection = client.db("furnitureWorldDB").collection("cart")
     const userCollection = client.db("furnitureWorldDB").collection("users")
 
-    app.post('jwt',(req,res)=>{
-      const user = req.body 
-      const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{
-        expiresIn : '1h'
+    app.post('/jwt', (req, res) => {
+      const user = req.body
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: '1h'
       })
-      res.send({token})
+      res.send({ token })
     })
 
     // userCollection
@@ -51,14 +65,22 @@ async function run() {
 
     app.post('/users', async (req, res) => {
       const user = req.body
+      const userData = {...user,role:'user'}
       const query = { email: user.email }
       const existingUser = await userCollection.findOne(query)
 
       if (existingUser) {
         return res.send({ massage: 'User Already exists' })
       }
-      const result = await userCollection.insertOne(user)
+      const result = await userCollection.insertOne(userData)
       res.send(result)
+    })
+
+    app.get('/users/admin/:email',  async (req, res) => {
+      const email = req.params.email
+      const query = {email: email} 
+      const user = await userCollection.findOne(query)
+      res.send(user)
     })
 
     app.patch('/users/admin/:id', async (req, res) => {
@@ -70,7 +92,7 @@ async function run() {
           role: 'admin'
         },
       }
-      const result = await userCollection.updateOne(filter,updatedDoc)
+      const result = await userCollection.updateOne(filter, updatedDoc)
       res.send(result)
     })
 
@@ -97,13 +119,24 @@ async function run() {
       res.send(result)
     })
 
+    app.post('/furniture',async(req,res)=>{
+      const newItem = req.body 
+      const result = await furnitureCollection.insertOne(newItem)
+      res.send(result)
+    })
+
 
     // cartCollection
 
-    app.get('/cart', async (req, res) => {
+    app.get('/cart', verifyJWT, async (req, res) => {
       const email = req.query.email
       if (!email) {
         res.send([])
+      }
+
+      const decodedEmail = req.decoded.email
+      if (email !== decodedEmail) {
+        return res.status(403).send({ error: true, massage: 'Sala Chor' })
       }
       const query = { email: email }
       const result = await cartCollection.find(query).toArray()
